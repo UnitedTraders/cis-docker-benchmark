@@ -32,30 +32,6 @@ only_if('docker not found') do
   command('docker').exist?
 end
 
-control 'docker-5.1' do
-  impact 1.0
-  title 'Verify AppArmor Profile, if applicable'
-  desc 'AppArmor is an effective and easy-to-use Linux application security system. It is available on quite a few Linux distributions by default such as Debian and Ubuntu.
-
-  Rationale: AppArmor protects the Linux OS and applications from various threats by enforcing security policy which is also known as AppArmor profile. You can create your own AppArmor profile for containers or use the Docker\'s default AppArmor profile. This would enforce security policies on the containers as defined in the profile.'
-
-  tag 'docker'
-  tag 'cis-docker-1.12.0': '5.1'
-  tag 'cis-docker-1.13.0': '5.1'
-  tag 'level:1'
-  ref 'Docker Security', url: 'https://docs.docker.com/engine/security/security/'
-  ref 'Secure Engine', url: 'https://docs.docker.com/engine/security/'
-  ref 'AppArmor security profiles for Docker', url: 'https://docs.docker.com/engine/security/apparmor/'
-
-  only_if { %w[ubuntu debian].include? os[:name] }
-  docker.containers.running?.ids.each do |id|
-    describe docker.object(id) do
-      its(['AppArmorProfile']) { should include(APP_ARMOR_PROFILE) }
-      its(['AppArmorProfile']) { should_not eq nil }
-    end
-  end
-end
-
 control 'docker-5.2' do
   impact 1.0
   title 'Verify SELinux security options, if applicable'
