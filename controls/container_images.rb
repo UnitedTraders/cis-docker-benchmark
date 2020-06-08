@@ -23,36 +23,36 @@
 title 'Container Images and Build File'
 
 # attributes
-CONTAINER_USER = attribute('container_user')
+#CONTAINER_USER = attribute('container_user')
 
 # check if docker exists
 only_if('docker not found') do
   command('docker').exist?
 end
 
-control 'docker-4.1' do
-  impact 1.0
-  title 'Create a user for the container'
-  desc 'Create a non-root user for the container in the Dockerfile for the container image.
+#control 'docker-4.1' do
+#  impact 1.0
+#  title 'Create a user for the container'
+#  desc 'Create a non-root user for the container in the Dockerfile for the container image.
 
-  Rationale: It is a good practice to run the container as a non-root user, if possible. Though user namespace mapping is now available, if a user is already defined in the container image, the container is run as that user by default and specific user namespace remapping is not required.'
+#  Rationale: It is a good practice to run the container as a non-root user, if possible. Though user namespace mapping is now available, if a user is already defined in the container image, the container is run as that user by default and specific user namespace remapping is not required.'
 
-  tag 'docker'
-  tag 'cis-docker-1.12.0': '4.1'
-  tag 'cis-docker-1.13.0': '4.1'
-  tag 'level:1'
-  ref 'Having non-root privileges on the host and root inside the container', url: 'https://github.com/docker/docker/issues/2918'
-  ref 'Support for user namespaces', url: 'https://github.com/docker/docker/pull/4572'
-  ref 'Proposal: Support for user namespaces', url: 'https://github.com/docker/docker/issues/7906'
-  ref 'Secure Engine', url: 'https://docs.docker.com/engine/security/'
+#  tag 'docker'
+#  tag 'cis-docker-1.12.0': '4.1'
+#  tag 'cis-docker-1.13.0': '4.1'
+#  tag 'level:1'
+#  ref 'Having non-root privileges on the host and root inside the container', url: 'https://github.com/docker/docker/issues/2918'
+# ref 'Support for user namespaces', url: 'https://github.com/docker/docker/pull/4572'
+#  ref 'Proposal: Support for user namespaces', url: 'https://github.com/docker/docker/issues/7906'
+#  ref 'Secure Engine', url: 'https://docs.docker.com/engine/security/'
 
-  docker.containers.running?.ids.each do |id|
-    describe docker.object(id) do
-      its(%w[Config User]) { should_not eq nil }
-      its(%w[Config User]) { should eq CONTAINER_USER }
-    end
-  end
-end
+#  docker.containers.running?.ids.each do |id|
+#    describe docker.object(id) do
+#      its(%w[Config User]) { should_not eq nil }
+#      its(%w[Config User]) { should eq CONTAINER_USER }
+#    end
+#  end
+#end
 
 control 'docker-4.2' do
   impact 1.0
