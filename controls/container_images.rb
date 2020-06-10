@@ -139,26 +139,6 @@ control 'docker-4.5' do
   end
 end
 
-control 'docker-4.6' do
-  impact 0.0
-  title 'Add HEALTHCHECK instruction to the container image'
-  desc 'Add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.
-
-  Rationale: One of the important security triads is availability. Adding HEALTHCHECK instruction to your container image ensures that the docker engine periodically checks the running container instances against that instruction to ensure that the instances are still working. Based on the reported health status, the docker engine could then exit non-working containers and instantiate new ones.'
-
-  tag 'docker'
-  tag 'cis-docker-1.12.0': '4.6'
-  tag 'cis-docker-1.13.0': '4.6'
-  tag 'level:1'
-  ref 'Add support for user-defined healthchecks', url: 'https://github.com/moby/moby/pull/22719'
-
-  docker.containers.running?.ids.each do |id|
-    describe docker.object(id) do
-      its(%w[Config Healthcheck]) { should_not eq nil }
-    end
-  end
-end
-
 control 'docker-4.7' do
   impact 1.0
   title 'Do not use update instructions alone in the Dockerfile'
@@ -199,26 +179,6 @@ control 'docker-4.8' do
 
   describe 'docker-test' do
     skip 'Use DevSec Linux Baseline in Container'
-  end
-end
-
-control 'docker-4.9' do
-  impact 1.0
-  title 'Use COPY instead of ADD in Dockerfile'
-  desc 'Use COPY instruction instead of ADD instruction in the Dockerfile.
-
-  Rationale: COPY instruction just copies the files from the local host machine to the container file system. ADD instruction potentially could retrieve files from remote URLs and perform operations such as unpacking. Thus, ADD instruction introduces risks such as adding malicious files from URLs without scanning and unpacking procedure vulnerabilities.'
-
-  tag 'docker'
-  tag 'cis-docker-1.12.0': '4.9'
-  tag 'cis-docker-1.13.0': '4.9'
-  tag 'level:1'
-  ref 'Best practices for writing Dockerfiles', url: 'https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/'
-
-  docker.images.ids.each do |id|
-    describe command("docker --no-trunc history #{id}| grep 'ADD'") do
-      its('stdout') { should eq '' }
-    end
   end
 end
 
