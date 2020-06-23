@@ -22,6 +22,8 @@
 
 title 'Docker Configuration Files'
 
+DOCKER_SERVICE_PATH='/usr/lib/systemd/system/docker.service'
+
 # check if docker exists
 only_if('docker not found') do
   command('docker').exist?
@@ -42,7 +44,7 @@ control 'docker-2.1' do
   tag 'level:1'
   ref 'Control and configure Docker with systemd', url: 'https://docs.docker.com/engine/admin/systemd/'
 
-  describe file(docker_helper.path) do
+  describe file(DOCKER_SERVICE_PATH) do
     it { should exist }
     it { should be_file }
     it { should be_owned_by 'root' }
@@ -63,7 +65,7 @@ control 'docker-2.2' do
   tag 'level:1'
   ref 'Control and configure Docker with systemd', url: 'https://docs.docker.com/engine/admin/systemd/'
 
-  describe file(docker_helper.path) do
+  describe file(DOCKER_SERVICE_PATH) do
     it { should exist }
     it { should be_file }
     it { should be_readable.by('owner') }
