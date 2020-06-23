@@ -22,33 +22,17 @@
 
 title 'Host Configuration'
 
-MANAGEABLE_CONTAINER_NUMBER = attribute('managable_container_number')
-BENCHMARK_VERSION = attribute('benchmark_version')
+DOCKER_VERSION = '19.03'
+MANAGEABLE_CONTAINER_NUMBER = 25
 
 # check if docker exists
 only_if('docker not found') do
   command('docker').exist?
 end
 
+# Docker Host Security Configuration Tests
+
 control 'host-1.1' do
-  impact 1.0
-  title 'Create a separate partition for containers'
-  desc 'All Docker containers and their data and metadata is stored under /var/lib/docker directory. By default, /var/lib/docker would be mounted under / or /var partitions based on availability.
-
-  Rationale: Docker depends on /var/lib/docker as the default directory where all Docker related files, including the images, are stored. This directory might fill up fast and soon Docker and the host could become unusable. So, it is advisable to create a separate partition (logical volume) for storing Docker files.'
-
-  tag 'host'
-  tag 'cis-docker-1.12.0': '1.1'
-  tag 'cis-docker-1.13.0': '1.1'
-  tag 'level:1'
-  ref 'Docker storage recommendation', url: 'http://www.projectatomic.io/docs/docker-storage-recommendation/'
-
-  describe mount('/var/lib/docker') do
-    it { should be_mounted }
-  end
-end
-
-control 'host-1.2' do
   impact 1.0
   title 'Use the updated Linux Kernel'
   desc 'Docker in daemon mode has specific kernel requirements. A 3.10 Linux kernel is the minimum requirement for Docker.'
@@ -56,61 +40,16 @@ control 'host-1.2' do
   tag 'host'
   tag 'cis-docker-1.12.0': '1.2'
   tag 'level:1'
-  ref 'Check kernel dependencies', url: 'https://docs.docker.com/engine/installation/binaries/#check-kernel-dependencies'
-  ref 'Installation list', url: 'https://docs.docker.com/engine/installation/#installation-list'
-
+  
   only_if { os.linux? }
   kernel_version = command('uname -r | grep -o \'^\w\.\w*\.\w*\'').stdout
   kernel_compare = Gem::Version.new('3.10') <= Gem::Version.new(kernel_version)
   describe kernel_compare do
     it { should eq true }
   end
-  only_if { BENCHMARK_VERSION == '1.12.0' }
 end
 
-control 'host-1.3' do
-  impact 1.0
-  title 'Harden the container host'
-  desc 'Containers run on a Linux host. A container host can run one or more containers. It is of utmost importance to harden the host to mitigate host security misconfiguration.
-
-  Rationale: You should follow infrastructure security best practices and harden your host OS. Keeping the host system hardened would ensure that the host vulnerabilities are mitigated. Not hardening the host system could lead to security exposures and breaches. You can use the dev-sec.io Hardening Framework for this task
-
-  By default, host has factory settings. It is not hardened.'
-
-  tag 'host'
-  tag 'cis-docker-1.12.0': '1.3'
-  tag 'cis-docker-1.13.0': '1.2'
-  tag 'level:1'
-  ref 'Dev-Sec Hardening Framework', url: 'http://dev-sec.io/'
-  ref 'Secure Engine', url: 'https://docs.docker.com/engine/security/'
-  ref 'Center of Internet Security Benchmarks', url: 'https://learn.cisecurity.org/benchmarks'
-  ref 'Grsecurity', url: 'https://grsecurity.net/'
-  ref 'Grsecurity Wiki', url: 'https://en.wikibooks.org/wiki/Grsecurity'
-  ref 'PAX Security', url: 'https://pax.grsecurity.net/'
-  ref 'PAX Security Wiki', url: 'https://en.wikipedia.org/wiki/PaX'
-
-  describe 'docker-test' do
-    skip 'Harden the container host. Use the Dev-Sec Hardening Framework'
-  end
-end
-
-control 'host-1.4' do
-  impact 1.0
-  title 'Remove all non-essential services from the host'
-  desc 'Ensure that the host running the docker daemon is running only the essential services.'
-
-  tag 'host'
-  tag 'cis-docker-1.12.0': '1.4'
-  tag 'level:1'
-  ref 'Containers & Docker: How Secure Are They?', url: 'https://blog.docker.com/2013/08/containers-docker-how-secure-are-they/'
-  ref 'Dev-Sec Hardening Framework', url: 'http://dev-sec.io/'
-
-  describe 'docker-test' do
-    skip 'Remove all non-essential services from the host. Use the Dev-Sec Hardening Framework'
-  end
-end
-
-control 'host-1.5' do
+control 'host-1.2' do
   impact 1.0
   title 'Keep Docker up to date'
   desc 'There are frequent releases for Docker software that address security vulnerabilities,product bugs and bring in new functionality. Keep a tab on these product updates and upgrade as frequently as when new security vulnerabilities are fixed or deemed correct for your organization.
@@ -121,32 +60,86 @@ control 'host-1.5' do
   tag 'cis-docker-1.12.0': '1.5'
   tag 'cis-docker-1.13.0': '1.3'
   tag 'level:1'
-  ref 'Docker installation', url: 'https://docs.docker.com/engine/installation/'
-  ref 'Docker releases', url: 'https://github.com/moby/moby/releases/tag/v17.03.2-ce'
-  ref 'About Docker EE', url: 'https://docs.docker.com/enterprise/'
+  
+  docker_server_version = command('docker version --format \'{{.Server.Version}}\'').stdout
+  docker_client_version = command('docker version --format \'{{.Client.Version}}\'').stdout
+  
+  docker_version_compare = docker_server_version==docker_client_version
+  docker_version_latest_compare = Gem::Version.new(DOCKER_VERSION) <= Gem::Version.new(docker_server_version)
 
-  describe docker do
-    its('version.Client.Version') { should cmp >= '17.06' }
-    its('version.Server.Version') { should cmp >= '17.06' }
+  describe docker_version_compare do
+      it { should eq docker_version_latest_compare }
   end
 end
 
-control 'host-1.6' do
+control 'host-1.3' do
   impact 1.0
-  title 'Only allow trusted users to control Docker daemon'
-  desc 'The Docker daemon currently requires \'root\' privileges. A user added to the \'docker\' group gives him full \'root\' access rights.
+  title 'Audit docker daemon'
+  desc 'Audit all Docker daemon activities.
 
-  Rationale: Docker allows you to share a directory between the Docker host and a guest container without limiting the access rights of the container. This means that you can start a container and map the / directory on your host to the container. The container will then be able to alter your host file system without any restrictions. In simple terms, it means that you can attain elevated privileges with just being a member of the \'docker\' group and then starting a container with mapped / directory on the host.'
+  Rationale: Apart from auditing your regular Linux file system and system calls, audit Docker daemon as well. Docker daemon runs with \'root\' privileges. It is thus necessary to audit its activities and usage.'
 
   tag 'host'
-  tag 'cis-docker-1.12.0': '1.6'
+  tag 'cis-docker-1.12.0': '1.7'
+  tag 'cis-docker-1.13.0': '1.5'
+  tag 'level:1'
+  ref 'System auditing', url: 'https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Security_Guide/chap-system_auditing.html'
+
+  only_if { os.linux? }
+  describe service('auditbeat') do
+    it { should be_installed }
+    it { should be_enabled }
+    it { should be_running }
+  end
+end
+
+# Docker Security Operations Tests
+
+control 'host-1.4' do
+  impact 1.0
+  title 'Avoid image sprawl'
+  desc 'Do not keep a large number of container images on the same host. Use only tagged images as appropriate.
+
+  Rationale: Tagged images are useful to fall back from "latest" to a specific version of an image in production. Images with unused or old tags may contain vulnerabilities that might be exploited, if instantiated. Additionally, if you fail to remove unused images from the system and there are various such redundant and unused images, the host filesystem may become full and could lead to denial of service.'
+
+  tag 'host'
+  tag 'cis-docker-1.12.0': '1.4'
   tag 'cis-docker-1.13.0': '1.4'
   tag 'level:1'
-  ref 'Docker Engine Security', url: 'https://docs.docker.com/engine/security/'
-  ref 'On Docker security: \'docker\' group considered harmful', url: 'https://www.zopyx.com/andreas-jung/contents/on-docker-security-docker-group-considered-harmful'
-  ref 'Why we don\'t let non-root users run Docker in CentOS, Fedora, or RHEL', url: 'http://www.projectatomic.io/blog/2015/08/why-we-dont-let-non-root-users-run-docker-in-centos-fedora-or-rhel/'
+  ref 'Clean up unused Docker Containers and Images', url: 'http://craiccomputing.blogspot.de/2014/09/clean-up-unused-docker-containers-and.html'
+  ref 'Command to remove all unused images', url: 'https://forums.docker.com/t/command-to-remove-all-unused-images/20/8'
+  ref 'docker rmi --unused', url: 'https://github.com/moby/moby/issues/9054'
+  ref 'Use the Docker command line', url: 'https://docs.docker.com/engine/reference/commandline/cli/'
+  ref 'Add support for referring to images by digest', url: 'https://github.com/moby/moby/pull/11109'
 
-  describe group('docker') do
-    it { should exist }
+  instantiated_images = command('docker ps -qa | xargs docker inspect -f \'{{.Image}}\'').stdout.split
+  all_images = command('docker images -q --no-trunc').stdout.split
+  diff = all_images - instantiated_images
+
+  describe diff do
+    it { should be_empty }
+  end
+end
+
+control 'host-1.5' do
+  impact 1.0
+  title 'Avoid container sprawl'
+  desc 'Do not keep a large number of containers on the same host.
+
+  Rationale: The flexibility of containers makes it easy to run multiple instances of applications and indirectly leads to Docker images that exist at varying security patch levels. It also means that you are consuming host resources that otherwise could have been used for running \'useful\' containers. Having more than just the manageable number of containers on a particular host makes the situation vulnerable to mishandling, misconfiguration and fragmentation. Thus, avoid container sprawl and keep the number of containers on a host to a manageable total.'
+
+  tag 'host'
+  tag 'cis-docker-1.12.0': '1.5'
+  tag 'cis-docker-1.13.0': '1.5'
+  tag 'level:1'
+  ref 'Security Risks and Benefits of Docker Application Containers', url: 'https://zeltser.com/security-risks-and-benefits-of-docker-application/'
+  ref 'Docker networking: How Linux containers will change your network', url: 'http://searchsdn.techtarget.com/feature/Docker-networking-How-Linux-containers-will-change-your-network'
+
+  total_on_host = command('docker info').stdout.split[1].to_i
+  total_running = command('docker ps -q').stdout.split.length
+  diff = total_on_host - total_running
+
+  describe diff do
+    it { should be <= MANAGEABLE_CONTAINER_NUMBER }
   end
 end
